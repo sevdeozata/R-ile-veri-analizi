@@ -1,0 +1,406 @@
+---
+title: "Deney Tasarımı Proje Ödevi"
+author: "Assiye Sevde ÖZATA"
+date: "28 05 2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+ Veri Seti:https://www.kaggle.com/saurabhshahane/food-consumption-in-indonesia?select=+DATASET+cultural+dimension+of+food+consumption.xlsx
+
+ Bu veri seti, Endonezya'daki kentsel topluluklarda gıda tüketim kalıplarının kültürel boyutunun özelliklerine ilişkin anket verilerini göstermektedir. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(readxl)
+DATASET_cultural_dimension_of_food_consumption <-read_excel("C:/Users/sevde/OneDrive/Masaüstü/DATASET_cultural dimension of food consumption.xlsx")
+View(DATASET_cultural_dimension_of_food_consumption)
+head(DATASET_cultural_dimension_of_food_consumption)
+```
+
+ Bu veri seti 710 satırdan ve 28 değişkenden oluşmaktadır.
+
+```{r message=FALSE, warning=FALSE}
+sum(is.na(DATASET_cultural_dimension_of_food_consumption))
+```
+ Veride eksik gözlem bulunmamaktadır.
+
+```{r message=FALSE, warning=FALSE}
+str(DATASET_cultural_dimension_of_food_consumption)
+```
+
+#Ana faktör `(B9) OCCUPATION`
+#Bağımlı değişken `(C15) % MONTHLY EXPENDITURE FOR FOOD`
+
+1) Tek-yönlü ANOVA
+
+ İlk olarak seçtiğimiz ana faktörü(`(B9) OCCUPATION`) faktör olarak tanımlarız.
+
+```{r message=FALSE, warning=FALSE}
+DATASET_cultural_dimension_of_food_consumption$`(B9) OCCUPATION`<- as.factor(DATASET_cultural_dimension_of_food_consumption$`(B9) OCCUPATION`)
+```
+
+```{r message=FALSE, warning=FALSE}
+levels(DATASET_cultural_dimension_of_food_consumption$`(B9) OCCUPATION`)
+```
+ Mesleklerin gıda aylık harcamalara göre boxplot grafiğini çizdirebiliriz.
+ 
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+ggplot(DATASET_cultural_dimension_of_food_consumption, aes(x=`(B9) OCCUPATION`, y=`(C15) % MONTHLY EXPENDITURE FOR FOOD`))+labs(title="",x="Meslek", y = "Gıda Aylık Harcama")+
+geom_boxplot()+
+geom_point()
+```
+
+```{r message=FALSE, warning=FALSE}
+model_DATASET<-aov(`(C15) % MONTHLY EXPENDITURE FOR FOOD`~ `(B9) OCCUPATION`, data = DATASET_cultural_dimension_of_food_consumption)
+model_DATASET
+```
+```{r message=FALSE, warning=FALSE}
+summary(model_DATASET)
+```
+ Tek-yönlü ANOVA için hipotezlerimiz aşağıdaki gibidir. $$H_0 : \mu_1=\mu_2=\mu_3=\mu_4=\mu_5=\mu_6$$, $H_1:$ En az bir ($i,j$) için $\mu_i \neq \mu_j$ F-istatistiğini değerine karşılık gelen p-değeri< $\alpha$ = 0.05 olduğundan $H_0$ hipotezi reddedilir.En az bir deneme için ortalama diğer denemelerin ortalamalarından farklıdır.
+
+Yorum: Meslek faktörü, kentsel toplulukların gıda aylık harcamasında önemli bir etkiye sahiptir.
+
+
+2) Rastgele Tam Blok Tasarımı
+
+ Bu veri için ilk olarak bloklama yaparak varyans analizini yapacağız. Bunun için aov fonksiyonunda hem
+ana (main) faktör meslek hem de bloklama faktörü din kullanacağız.
+
+```{r message=FALSE, warning=FALSE}
+DATASET_cultural_dimension_of_food_consumption$`(B5) RELIGION`<- as.factor(DATASET_cultural_dimension_of_food_consumption$`(B5) RELIGION`)
+```
+
+```{r message=FALSE, warning=FALSE}
+levels(DATASET_cultural_dimension_of_food_consumption$`(B5) RELIGION`)
+```
+
+```{r message=FALSE, warning=FALSE}
+blok_model <- aov(`(C15) % MONTHLY EXPENDITURE FOR FOOD`~  `(B5) RELIGION`+ `(B9) OCCUPATION` , data = DATASET_cultural_dimension_of_food_consumption)
+summary(blok_model)
+```
+ Bu sonuçlara göre faktör düzeyi yani meslek için p − value = 0.0148 < 0.05 olduğundan $$H_0:\mu_1=\mu_2=\mu_3=\mu_4=\mu_5=\mu_6$$ veya $$H_0 : \tau_1=\tau_2=\tau_3=\tau_4=\tau_5=\tau_6=0 $$
+hipotezi red edilir.
+
+ Böylece, denemeler yani burada analize dahil edilen mesleğe göre kentsel toplulukların gıda aylık harcamasında
+anlamlı bir farklılık vardır sonucunu elde ederiz.
+
+ Ayrıca, blok için de p − value =0.2783 > 0.05 olduğundan $H_0 :\mu_1=\mu_2=\mu_3=\mu_4 =\mu_5=\mu_6 =0$ hipotezi kabul edilir.
+
+ Dinlere göre kentsel toplulukların gıda aylık harcaması arasında anlamlı bir farklılık yoktur sonucunu elde ederiz.
+ 
+
+Şimdi, meslek ile din faktörünün etkileşimini de ekleyerek aşağıdaki etkileşimli modeli inceleyelim.
+
+```{r message=FALSE, warning=FALSE}
+anova_occupation_religion_interaction<-aov(`(C15) % MONTHLY EXPENDITURE FOR FOOD`~ `(B5) RELIGION`+`(B5) RELIGION`:`(B9) OCCUPATION`+`(B9) OCCUPATION`, data = DATASET_cultural_dimension_of_food_consumption) 
+summary(anova_occupation_religion_interaction)
+
+```
+
+ Bu sonuca göre meslek `(B9) OCCUPATION` ile din `(B5) RELIGION` faktörlerinin etkileşimlerinin kentsel toplulukların gıda aylık harcaması üzerindeki etkisi $\alpha$ > 0.05 anlamlılık düzeyinde önemsizdir (anlamlı değildir).
+
+
+3) Latin Kare Tasarımı
+
+ Blok Faktör olarak `(B7) EDUCATION LEVEL` ve `(B5) RELIGION` seçelim.
+
+```{r message=FALSE, warning=FALSE}
+DATASET_cultural_dimension_of_food_consumption$`(B5) RELIGION`<- as.factor(DATASET_cultural_dimension_of_food_consumption$`(B5) RELIGION`)
+DATASET_cultural_dimension_of_food_consumption$`(B7) EDUCATION LEVEL`<- as.factor(DATASET_cultural_dimension_of_food_consumption$`(B7) EDUCATION LEVEL`)
+```
+
+```{r}
+levels(DATASET_cultural_dimension_of_food_consumption$`(B7) EDUCATION LEVEL`)
+levels(DATASET_cultural_dimension_of_food_consumption$`(B5) RELIGION`)
+levels(DATASET_cultural_dimension_of_food_consumption$`(B9) OCCUPATION`)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+anova_latin<-aov(`(C15) % MONTHLY EXPENDITURE FOR FOOD`~ `(B5) RELIGION` + `(B7) EDUCATION LEVEL` + `(B9) OCCUPATION`, data = DATASET_cultural_dimension_of_food_consumption)
+summary(anova_latin)
+```
+
+ Bu sonuca göre
+
+• Ana faktörümüz meslek için p − value = 0.0248 < 0.05 olduğundan $$H_0 : \tau_1 = \tau_2 = \tau_3 = \tau_4 = \tau_5 = \tau_6 = 0 $$ hipotezi reddedilir. Böylece,mesleklere göre kentsel toplulukların gıda aylık harcaması arasında anlamlı bir farklılık vardır sonucunu elde ederiz.
+
+• Blok faktörlerimiz din ve eğitim seviyesi, din faktörün p-değeri> 0.05 olduğundan kentsel toplulukların gıda aylık harcaması üzerinde anlamlı bir etkisi olmadığını, eğitim seviyesi faktörünün p-değeri>0.05 olduğundan kentsel toplulukların gıda aylık harcaması üzerinde anlamlı bir etkisi olmadığını söyleyebiliriz.
+
+ Dolayısıyla,
+
+ Din faktörünün kentsel toplulukların gıda aylık harcaması bakımından anlamlı bir farklılık yoktur.
+ Eğitim seviyesi faktörünün kentsel toplulukların gıda aylık harcaması bakımından anlamlı bir farklılık yoktur.
+
+
+4) Tek-yönlü ANCOVA
+
+#Ortak değişken:`(B11) HOUSEHOLD MEMBER`
+
+```{r message=FALSE, warning=FALSE}
+ancova_model<-aov(`(C15) % MONTHLY EXPENDITURE FOR FOOD` ~ `(B11) HOUSEHOLD MEMBER` + `(B9) OCCUPATION`, data = DATASET_cultural_dimension_of_food_consumption)
+summary(ancova_model)
+```
+
+ Bu sonuca göre direkt yorum yapamayız. Çünkü, düzeltilmiş kareler toplamları ile testlerimizi yapmalıyız.
+
+
+ Bunun için car paketindeki Anova fonksiyonunu Tip III kareler toplamları ile hesaplarız.
+
+```{r message=FALSE, warning=FALSE}
+car::Anova(aov(`(C15) % MONTHLY EXPENDITURE FOR FOOD` ~ `(B11) HOUSEHOLD MEMBER` + `(B9) OCCUPATION`, data = DATASET_cultural_dimension_of_food_consumption),type="III")
+```
+
+ Bu sonuca göre;
+
+ Denemeler için yani occupation faktörü için test istatistigi değeri F0 = 2.7206 ve p-degeri<0.05 olduğundan ilgili $$H_0 :\tau_1 = \tau_2 = \tau_3 = \tau_4 = \tau_5 = \tau_6 = 0$$  hipotezi reddedilir.
+ Böylece deneye katılanların ev üye sayısı gözönünde bulundurulduğunda  kentsel toplulukların gıda aylık harcaması bakımından mesleklerin etkisinin anlamlı olduğunu elde ederiz.
+
+ Kovaryans analizine ihtiyacımız olup olmadığını veya doğru kullanıp kullanmadığımızı kontrol etmek için de
+$H_0 :\beta=0$ hipotezini test ederiz.
+
+ Bunun için,$\beta$ eğim parametresi household member ile monthly expenditure for food arasındaki doğrusal regresyonun eğim katsayısı olduğundan bu hipotez için F-testinin değeri yukarıdaki household member için verilen sonuçlardan $F_\beta$ =0.0992 olarak elde edilir ve p-değeri>0.05 olduğundan $H_0:\beta= 0$ kabul edilir. Dolayısıyla, ANCOVA kullanmak uygun değildir.
+
+
+6) Varsayım Kontrolü
+
+ Tek-yönlü ANOVA modeli için;
+ 
+• Normallik varsayımı:
+
+ Quantile-Quantile (qq) grafiği
+
+```{r message=FALSE, warning=FALSE}
+qqnorm(model_DATASET$residuals)
+qqline(model_DATASET$residuals,col="red")
+```
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+ggplot(data=DATASET_cultural_dimension_of_food_consumption, aes(sample = `(C15) % MONTHLY EXPENDITURE FOR FOOD`))+
+geom_qq()+
+geom_qq_line(color = "orange")
+```
+ 
+ Grafiklere baktığımızda net bir yorum yapamayız.
+
+#Kolmogorov-Smirnov normallik testi:
+Parametrelerin değerlerini bilmediğimiz için veriden tahmin ederiz.
+
+```{r message=FALSE, warning=FALSE}
+ks.test(model_DATASET$residuals,"pnorm",mean=mean(model_DATASET$residuals),sd=sd(model_DATASET$residuals))
+```
+
+#Shapiro-Wilk testi:
+
+```{r message=FALSE, warning=FALSE}
+shapiro.test(model_DATASET$residuals)
+```
+
+#Lilliefors (Kolmogorov-Smirnov) normality test:
+
+```{r message=FALSE, warning=FALSE}
+nortest::lillie.test(residuals(model_DATASET))
+```
+
+#Cramer-von Mises test for normality:
+
+```{r message=FALSE, warning=FALSE}
+goftest::cvm.test(model_DATASET$residuals)
+```
+ 
+ p-value < 0.05 olduğundan $H_0$ reddedilir. Artıklar normal dağılıma sahip değildir.Normallik varsayımı sağlanmamaktadır.
+
+#Homojen varyanslılık kontrolü:
+
+#Bartlett Test:
+
+```{r message=FALSE, warning=FALSE}
+bartlett.test(resid(model_DATASET) ~ `(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+```
+ $H_0$ reddedilir. Denemelerin varyanslarının homojen olduğu hipotezi reddedilir.
+
+#Levene Test:
+
+```{r message=FALSE, warning=FALSE}
+car::leveneTest(resid(model_DATASET) ~ `(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+```
+ 
+ $H_0$ reddedilir. Denemelerin varyanslarının homojen olduğu hipotezi kabul edilemez. Artıklar için homojen varyanslılık varsayımı sağlanmamaktadır.
+
+• Box-Cox dönüşümü uygulayalım.
+
+```{r message=FALSE, warning=FALSE}
+bc<-MASS::boxcox(model_DATASET)
+```
+
+```{r message=FALSE, warning=FALSE}
+lambda <- bc$x[which.max(bc$y)]
+lambda
+```
+
+```{r message=FALSE, warning=FALSE}
+A1<-car::boxCox(model_DATASET, family="bcPower", plotit = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+lambda1<-A1$x[which.max(A1$y)]
+lambda1
+```
+
+```{r message=FALSE, warning=FALSE}
+T1<-cellWise::transfo(DATASET_cultural_dimension_of_food_consumption$`(C15) % MONTHLY EXPENDITURE FOR FOOD`, type = "BC", robust = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE}
+T1$lambdahats
+```
+
+ 1.Dönüşüm
+
+ 0.1818182 değerini kullanarak `(C15) % MONTHLY EXPENDITURE FOR FOOD` değişkeni üzerinde dönüşüm yapalım ve ANOVA modelini oluşturarak,
+varsayımları kontrol edelim.
+
+```{r message=FALSE, warning=FALSE}
+model2_DATASET<-aov((`(C15) % MONTHLY EXPENDITURE FOR FOOD`^lambda1)~`(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+model2_DATASET
+```
+
+```{r message=FALSE, warning=FALSE}
+summary(model2_DATASET)
+```
+
+• Varsayımların kontrolü:
+
+```{r message=FALSE, warning=FALSE}
+qqnorm(resid(model2_DATASET), main = "Normal Q-Q Plot", col = "darkgrey")
+qqline(resid(model2_DATASET), col = "dodgerblue", lwd = 2)
+```
+```{r message=FALSE, warning=FALSE}
+shapiro.test(residuals(model2_DATASET))
+```
+```{r message=FALSE, warning=FALSE}
+nortest::lillie.test(residuals(model2_DATASET))
+```
+
+```{r message=FALSE, warning=FALSE}
+ks.test(scale(residuals(model2_DATASET)), "pnorm")
+```
+ Hatalar normallik varsayımını sağlamamaktadır.
+
+```{r message=FALSE, warning=FALSE}
+bartlett.test((`(C15) % MONTHLY EXPENDITURE FOR FOOD`^lambda1)~`(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+```
+```{r message=FALSE, warning=FALSE}
+car::leveneTest((`(C15) % MONTHLY EXPENDITURE FOR FOOD`^lambda1)~`(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+```
+ Homojen varyanslılık varsayımı sağlanmamaktadır.
+
+ 2.Dönüşüm
+
+ 0.2149362 değerini kullanarak `(C15) % MONTHLY EXPENDITURE FOR FOOD` değişkeni üzerinde dönüşüm yapalım ve ANOVA modelini oluşturarak, varsayımları kontrol edelim.
+
+```{r message=FALSE, warning=FALSE}
+model3_DATASET<-aov( (`(C15) % MONTHLY EXPENDITURE FOR FOOD`^(T1$lambdahats))~`(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+model3_DATASET
+```
+
+```{r message=FALSE, warning=FALSE}
+summary(model3_DATASET)
+```
+
+• Varsayımların kontrolü:
+
+```{r message=FALSE, warning=FALSE}
+shapiro.test(residuals(model3_DATASET))
+```
+```{r message=FALSE, warning=FALSE}
+nortest::lillie.test(residuals(model3_DATASET))
+```
+
+```{r message=FALSE, warning=FALSE}
+ks.test(scale(residuals(model3_DATASET)), "pnorm")
+```
+ Hatalar normallik varsayımını sağlamamaktadır.
+
+```{r message=FALSE, warning=FALSE}
+bartlett.test((`(C15) % MONTHLY EXPENDITURE FOR FOOD`^(T1$lambdahats))~`(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+```
+```{r message=FALSE, warning=FALSE}
+car::leveneTest((`(C15) % MONTHLY EXPENDITURE FOR FOOD`^(T1$lambdahats))~`(B9) OCCUPATION`, data=DATASET_cultural_dimension_of_food_consumption)
+```
+ Homojen varyanslılık varsayımı sağlanmamaktadır.
+
+
+5) İkili ve Çoklu Karşılaştırmalar
+
+Tek-yönlü ANOVA için:
+
+ Scheffe yöntemi ile tüm mümkün ikili karşılaştırmaları yapabiliriz.
+
+```{r message=FALSE, warning=FALSE}
+library(agricolae)
+scheffe_out1<-scheffe.test(model_DATASET,"(B9) OCCUPATION",group=TRUE)
+scheffe_out1
+```
+
+ Bu sonuca göre $groups altında aynı harfler ile gösterilenler arasında anlamlı bir fark bulunmamaktadır.Böylece, tüm grupların alındığı kitlelerin ortalamaları arasında anlamlı bir farklılık bulunmamaktadır diyebiliriz.
+ 
+• HSD.test{agricolae}
+ 
+```{r message=FALSE, warning=FALSE}
+hsd_out<-HSD.test(model_DATASET,"(B9) OCCUPATION",group=FALSE)
+hsd_out
+```
+
+• Eğer testin sonucunda hesaplanan p-degeri> $\alpha$ olur ise $H_0$ hipotezi kabul edilir. Böylece karşılaştırılan
+gruplar arasında anlamlı bir farklılık olmadığı sonucunu elde ederiz.
+
+• Eğer p-değeri< $\alpha$ olur ise $H_0$ hipotezi reddedilir. Böylece karşılaştırılan gruplar arasında anlamlı bir
+farklılık olduğu sonucunu elde ederiz.
+ 
+ Baktığımızda Independent Worker - Private Employees gruplarının p-değerinin 0.05 den küçük olduğunu görmekteyiz bu nedenle 
+$H_0$ hipotezi reddedilir. Böylece karşılaştırılan gruplar arasında anlamlı bir farklılık olduğu sonucunu elde ederiz.
+
+• Fisher LSD Test
+
+```{r message=FALSE, warning=FALSE}
+lsd_out<-LSD.test(model_DATASET,"(B9) OCCUPATION",group=FALSE)
+lsd_out
+```
+
+ Enterpreneur - Private Employees, Government Employees - Independent Worker, Independent Worker - Police Officer/Army, Independent Worker - Private Employees gruplarının p-değerinin 0.05 den küçük olduğunu görmekteyiz bu nedenle 
+$H_0$ hipotezi reddedilir. Böylece karşılaştırılan gruplar arasında anlamlı bir farklılık olduğu sonucunu elde ederiz.
+
+• duncan.test {agricolae}
+
+```{r message=FALSE, warning=FALSE}
+duncan_out<-duncan.test(model_DATASET, "(B9) OCCUPATION",group=FALSE)
+duncan_out
+```
+
+ Independent Worker - Police Officer/Army, Independent Worker - Private Employees, gruplarının p-değerinin 0.05 den küçük olduğunu görmekteyiz bu nedenle $H_0$ hipotezi reddedilir. Böylece karşılaştırılan gruplar arasında anlamlı bir farklılık olduğu sonucunu elde ederiz.
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
